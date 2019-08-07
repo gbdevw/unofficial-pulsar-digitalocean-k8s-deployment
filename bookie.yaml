@@ -1,0 +1,188 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+# This method assumes that :
+# 1. Nodes that can provide local fast storage and host bookies are labelled (ex: bookie=yes)
+#    Example : kubectl label nodes <node-name> bookie=yes
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: bookie-config
+data:
+    PULSAR_MEM: "\" -Xms64m -Xmx256m -XX:MaxDirectMemorySize=256m\""
+    dbStorage_writeCacheMaxSizeMb: "32" # Write cache size (direct memory)
+    dbStorage_readAheadCacheMaxSizeMb: "32" # Read cache size (direct memory)
+    zkServers: zookeeper
+    statsProviderClass: org.apache.bookkeeper.stats.prometheus.PrometheusMetricsProvider
+---
+##
+## Define the Bookie headless service
+## In practice, in this case, it is only useful to have a view of
+## all the bookie pods that are present
+##
+apiVersion: v1
+kind: Service
+metadata:
+    name: bookkeeper
+    labels:
+        app: pulsar
+        component: bookkeeper
+spec:
+    ports:
+      - port: 3181
+        name: server
+    clusterIP: None
+    selector:
+        app: pulsar
+        component: bookkeeper
+---
+#
+# Define a Stateful Set that will schedule bookies on nodes that can provide local
+# persistent volumes. The volumes are bound after the scheduling of the bookie on 
+# a node. The Stateful Set defines a sticky identity for each bookie. When a bookie
+# need to be rescheduled, it will be scheduled with the same volumes.
+
+# The rules for bookie scheduling are :
+# 1. The node has the right label that indicates that it can provide local fast storage
+# 2. The node does not host another bookie
+
+# Only one replica is defined. You must not ask for more replicas than your cluster can initially
+# handle (the deployment will fail). Scale the Stateful Set accordingly after the deployment.
+#
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bookie
+spec:
+  selector:
+    matchLabels:
+      app: pulsar
+      component: bookkeeper
+      cluster: local
+  serviceName: "bookkeeper"
+  replicas: 1
+  template:
+    metadata:
+        labels:
+            app: pulsar
+            component: bookkeeper
+            # Specify cluster to allow aggregation by cluster in
+            # the metrics - Same values as official
+            cluster: local
+        annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "8000"
+
+    spec:
+      # Rules to tune bookies scheduling : One bookie per node that can provide local fast storage
+      affinity:
+        nodeAffinity:
+          # Require that the node has to provide local fast storage in order
+          # to be elligible for bookie scheduling
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: bookie
+                operator: In
+                values:
+                - "yes"
+        podAntiAffinity:
+          # Require that only one instance of bookie is scheduled on one node
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                - key: component
+                  operator: In
+                  values:
+                  - bookkeeper
+              topologyKey: "kubernetes.io/hostname"
+
+      containers:
+        - name: bookie
+          image: apachepulsar/pulsar-all:latest
+          command: ["sh", "-c"]
+          args:
+            - >
+              bin/apply-config-from-env.py conf/bookkeeper.conf &&
+              bin/apply-config-from-env.py conf/pulsar_env.sh &&
+              bin/pulsar bookie
+          ports:
+            - containerPort: 3181
+              hostPort: 3181
+              name: client
+          envFrom:
+            - configMapRef:
+                  name: bookie-config
+          env:
+            - name: advertisedAddress
+              valueFrom:
+                  fieldRef:
+                      fieldPath: status.hostIP
+
+          volumeMounts:
+            - name: journal-disk
+              mountPath: /pulsar/data/bookkeeper/journal
+            - name: ledgers-disk
+              mountPath: /pulsar/data/bookkeeper/ledgers
+
+          # bin/bookkeeper shell bookiesanity
+
+      initContainers:
+          # The first time, initialize BK metadata in zookeeper
+          # Otherwise ignore error if it's already there
+        - name: bookie-metaformat
+          image: apachepulsar/pulsar-all:latest
+          command: ["sh", "-c"]
+          args:
+            - >
+              bin/apply-config-from-env.py conf/bookkeeper.conf &&
+              bin/bookkeeper shell metaformat --nonInteractive || true;
+          envFrom:
+            - configMapRef:
+                  name: bookie-config
+      
+  # Allow Stateful Set to create a dynamic persistent volume claim for local storage
+  volumeClaimTemplates:
+    # Local persistent volume claim for the journal
+    - metadata:
+        name: journal-disk
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            # Request a 12GB Block Storage Volume
+            # Default config. uses 5 files of 2GB + misc. for bookie journal
+            storage: 12G
+        # Use the dedicated Dgitial Ocean storage class to request Block Storage Volumes
+        storageClassName: do-block-storage
+    # Local persistent volume claim for the ledgers
+    - metadata:
+        name: ledgers-disk
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            # Request a 100GB Block Storage Volume
+            # Dimension ledger storage space according your expected load
+            storage: 100G
+        # Use the dedicated Dgitial Ocean storage class to request Block Storage Volumes
+        storageClassName: do-block-storage
