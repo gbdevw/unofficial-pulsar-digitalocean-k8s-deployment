@@ -17,10 +17,6 @@
 # under the License.
 #
 
-# This method assumes that :
-# 1. Nodes that can provide local fast storage and host bookies are labelled (ex: bookie=yes)
-#    Example : kubectl label nodes <node-name> bookie=yes
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -58,13 +54,13 @@ spec:
 # persistent volumes. The volumes are bound after the scheduling of the bookie on 
 # a node. The Stateful Set defines a sticky identity for each bookie. When a bookie
 # need to be rescheduled, it will be scheduled with the same volumes.
-
-# The rules for bookie scheduling are :
-# 1. The node has the right label that indicates that it can provide local fast storage
-# 2. The node does not host another bookie
-
-# Only one replica is defined. You must not ask for more replicas than your cluster can initially
-# handle (the deployment will fail). Scale the Stateful Set accordingly after the deployment.
+#
+# The only rule for bookie scheduling is that the node does not host another bookie
+#
+# Only one replica is requested. Scale the Stateful Set accordingly after the deployment.
+#
+# You shouldn't ask for a number of replicas that is greater than the number of nodes in
+# your kuebrnetes cluster. Your deployment will fail because of the one bookie per node rule.
 #
 apiVersion: apps/v1
 kind: StatefulSet
@@ -91,18 +87,8 @@ spec:
             prometheus.io/port: "8000"
 
     spec:
-      # Rules to tune bookies scheduling : One bookie per node that can provide local fast storage
+      # Rules to tune bookies scheduling : One bookie per node
       affinity:
-        nodeAffinity:
-          # Require that the node has to provide local fast storage in order
-          # to be elligible for bookie scheduling
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: bookie
-                operator: In
-                values:
-                - "yes"
         podAntiAffinity:
           # Require that only one instance of bookie is scheduled on one node
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -181,8 +167,8 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            # Request a 100GB Block Storage Volume
+            # Request a 50GB Block Storage Volume
             # Dimension ledger storage space according your expected load
-            storage: 100G
+            storage: 50G
         # Use the dedicated Dgitial Ocean storage class to request Block Storage Volumes
         storageClassName: do-block-storage
