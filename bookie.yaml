@@ -149,6 +149,9 @@ spec:
     # Local persistent volume claim for the journal
     - metadata:
         name: journal-disk
+        labels:
+          app: pulsar
+          storage: bookie
       spec:
         accessModes:
           - ReadWriteOnce
@@ -162,6 +165,9 @@ spec:
     # Local persistent volume claim for the ledgers
     - metadata:
         name: ledgers-disk
+        labels:
+          app: pulsar
+          storage: bookie
       spec:
         accessModes:
           - ReadWriteOnce
