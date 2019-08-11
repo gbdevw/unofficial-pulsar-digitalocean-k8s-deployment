@@ -1,1 +1,49 @@
-# TODO : Add port forwarding rules for broker, grafana, prometheus and dashboard services
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+#
+# Configure a loadbalancer service to allow access from outside your Digital Ocean Kubernetes Cluster
+#
+apiVersion: v1
+kind: Service
+metadata:
+  name: do-pulsar-loadbalancer
+spec:
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 30001
+      targetPort: 8080
+      name: broker-webservice
+    - protocol: TCP
+      port: 30002
+      targetPort: 6650
+      name: broker
+    - protocol: TCP
+      port: 30003
+      targetPort: 9090
+      name: prometheus
+    - protocol: TCP
+      port: 30004
+      targetPort: 3000
+      name: grafana
+    - protocol: TCP
+      port: 30005
+      targetPort: 80
+      name: dashboard
