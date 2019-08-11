@@ -138,6 +138,21 @@ spec:
                 volumeMounts:
                   - name: datadir
                     mountPath: /pulsar/data
-            volumes:
-              - name: datadir
-                emptyDir: {}
+
+  # Allow Stateful Set to create a dynamic persistent volume claim for each pod
+  volumeClaimTemplates:
+    - metadata:
+        name: datadir
+        labels:
+          app: pulsar
+          storage: zookeeper
+        
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            # Request a 2GB Block Storage Volume
+            storage: 2G
+        # Use the dedicated Digital Ocean storage class to request Block Storage Volumes
+        storageClassName: do-block-storage
