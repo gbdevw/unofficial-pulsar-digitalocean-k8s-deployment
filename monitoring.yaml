@@ -69,12 +69,10 @@ metadata:
       app: pulsar
       component: prometheus
 spec:
-  type: NodePort
   ports:
-    - name: prometheus
-      nodePort: 30003
-      port: 9090
-      protocol: TCP
+    - port: 9090
+      name: prometheus
+  clusterIP: None
   selector:
       app: pulsar
       component: prometheus
@@ -141,15 +139,13 @@ metadata:
         app: pulsar
         component: grafana
 spec:
-    type: NodePort
-    ports:
-      - name: grafana
-        nodePort: 30004
-        port: 3000
-        protocol: TCP 
-    selector:
-        app: pulsar
-        component: grafana
+  ports:
+    - port: 3000
+      name: grafana
+  clusterIP: None
+  selector:
+      app: pulsar
+      component: grafana
 ---
 ## GRAFANA - Deployment
 apiVersion: apps/v1
@@ -186,15 +182,13 @@ metadata:
         app: pulsar
         component: dashboard
 spec:
-    type: NodePort
-    ports:
-      - name: dashboard
-        nodePort: 30005
-        port: 80
-        protocol: TCP
-    selector:
-        app: pulsar
-        component: dashboard
+  ports:
+    - port: 80
+      name: dashboard
+  clusterIP: None
+  selector:
+    app: pulsar
+    component: dashboard
 ---
 ## PULSAR DASHBOARD - Deployment
 apiVersion: apps/v1
