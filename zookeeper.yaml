@@ -16,7 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -81,7 +80,6 @@ spec:
                 pod.alpha.kubernetes.io/initialized: "true"
                 prometheus.io/scrape: "true"
                 prometheus.io/port: "8080"
-
         spec:
             # Make sure multiple pods of ZK don't get scheduled on the
             # same node, unless there are no other available nodes
@@ -150,7 +148,6 @@ spec:
         labels:
           app: pulsar
           storage: zookeeper
-        
       spec:
         accessModes:
           - ReadWriteOnce
