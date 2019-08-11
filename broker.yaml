@@ -16,26 +16,24 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
-    name: broker-config
+  name: broker-config
 data:
-    # Tune for available memory. Increase the heap up to 24G to have
-    # better GC behavior at high throughput
-    PULSAR_MEM: "\" -Xms64m -Xmx128m -XX:MaxDirectMemorySize=128m\""
-    zookeeperServers: zookeeper
-    configurationStoreServers: zookeeper
-    clusterName: local
-    # change the managed ledger settings if you have more bookies
-    managedLedgerDefaultEnsembleSize: "1"
-    managedLedgerDefaultWriteQuorum: "1"
-    managedLedgerDefaultAckQuorum: "1"
-    # enable pulsar functions
-    functionsWorkerEnabled: "true"
-    PF_pulsarFunctionsCluster: local
+  # Tune for available memory. Increase the heap up to 24G to have
+  # better GC behavior at high throughput
+  PULSAR_MEM: "\" -Xms64m -Xmx128m -XX:MaxDirectMemorySize=128m\""
+  zookeeperServers: zookeeper
+  configurationStoreServers: zookeeper
+  clusterName: local
+  # change the managed ledger settings if you have more bookies
+  managedLedgerDefaultEnsembleSize: "1"
+  managedLedgerDefaultWriteQuorum: "1"
+  managedLedgerDefaultAckQuorum: "1"
+  # enable pulsar functions
+  functionsWorkerEnabled: "true"
+  PF_pulsarFunctionsCluster: local
 ---
 ##
 ## Define the Broker headless service
@@ -45,20 +43,20 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-    name: broker
-    labels:
-        app: pulsar
-        component: broker
+  name: broker
+  labels:
+      app: pulsar
+      component: broker
 spec:
-    ports:
-      - port: 8080
-        name: http
-      - port: 6650
-        name: pulsar
-    clusterIP: None
-    selector:
-        app: pulsar
-        component: broker
+  ports:
+    - port: 8080
+      name: http
+    - port: 6650
+      name: pulsar
+  clusterIP: None
+  selector:
+    app: pulsar
+    component: broker
 ---
 ##
 ## Broker deployment definition
@@ -68,36 +66,42 @@ kind: Deployment
 metadata:
     name: broker
 spec:
-    replicas: 3
-    template:
-        metadata:
-            labels:
-                app: pulsar
-                component: broker
-            annotations:
-                prometheus.io/scrape: "true"
-                prometheus.io/port: "8080"
-        spec:
-            containers:
-              - name: broker
-                image: apachepulsar/pulsar-all:latest
-                command: ["sh", "-c"]
-                args:
-                  - >
-                    bin/apply-config-from-env.py conf/broker.conf &&
-                    bin/apply-config-from-env.py conf/pulsar_env.sh &&
-                    bin/gen-yml-from-env.py conf/functions_worker.yml &&
-                    bin/pulsar broker
-                ports:
-                  - containerPort: 8080
-                    # hostPort: 8080
-                  - containerPort: 6650
-                    # hostPort: 6650
-                envFrom:
-                  - configMapRef:
-                        name: broker-config
-                env:
-                 - name: advertisedAddress
-                   valueFrom:
-                       fieldRef:
-                           fieldPath: status.podIP
+  selector:
+    matchLabels:
+      app: pulsar
+      component: broker
+      cluster: local
+  replicas: 3
+  template:
+    metadata:
+      labels:
+          app: pulsar
+          component: broker
+          cluster: local
+      annotations:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: broker
+          image: apachepulsar/pulsar-all:latest
+          command: ["sh", "-c"]
+          args:
+            - >
+              bin/apply-config-from-env.py conf/broker.conf &&
+              bin/apply-config-from-env.py conf/pulsar_env.sh &&
+              bin/gen-yml-from-env.py conf/functions_worker.yml &&
+              bin/pulsar broker
+          ports:
+            - containerPort: 8080
+              # hostPort: 8080
+            - containerPort: 6650
+              # hostPort: 6650
+          envFrom:
+            - configMapRef:
+                  name: broker-config
+          env:
+            - name: advertisedAddress
+              valueFrom:
+                  fieldRef:
+                      fieldPath: status.podIP
