@@ -55,12 +55,7 @@ spec:
 # a node. The Stateful Set defines a sticky identity for each bookie. When a bookie
 # need to be rescheduled, it will be scheduled with the same volumes.
 #
-# The only rule for bookie scheduling is that the node does not host another bookie
-#
 # Only one replica is requested. Scale the Stateful Set accordingly after the deployment.
-#
-# You shouldn't ask for a number of replicas that is greater than the number of nodes in
-# your kuebrnetes cluster. Your deployment will fail because of the one bookie per node rule.
 #
 apiVersion: apps/v1
 kind: StatefulSet
@@ -87,19 +82,23 @@ spec:
             prometheus.io/port: "8000"
 
     spec:
-      # Rules to tune bookies scheduling : One bookie per node
       affinity:
+        # If possible, schedule bookie pods on different nodes
         podAntiAffinity:
-          # Require that only one instance of bookie is scheduled on one node
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                - key: component
-                  operator: In
-                  values:
-                  - bookkeeper
-              topologyKey: "kubernetes.io/hostname"
-
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                  labelSelector:
+                      matchExpressions:
+                        - key: "app"
+                          operator: In
+                          values:
+                            - pulsar
+                        - key: "component"
+                          operator: In
+                          values:
+                            - bookkeeper
+                  topologyKey: "kubernetes.io/hostname"
       containers:
         - name: bookie
           image: apachepulsar/pulsar-all:latest
