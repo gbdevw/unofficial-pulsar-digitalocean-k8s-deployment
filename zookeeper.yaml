@@ -19,22 +19,22 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-    name: zookeeper-config
+  name: zookeeper-config
 data:
-    PULSAR_MEM: "\" -Xms100m -Xmx256m \""
-    PULSAR_GC: "\" -XX:+UseG1GC -XX:MaxGCPauseMillis=10\""
+  PULSAR_MEM: "\" -Xms100m -Xmx256m \""
+  PULSAR_GC: "\" -XX:+UseG1GC -XX:MaxGCPauseMillis=10\""
 ---
 ## Define a disruption budget to ensure there are at least
 ## 2 ZK servers running all the time
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-    name: zk-budget
+  name: zk-budget
 spec:
-    selector:
-        matchLabels:
-            app: zk
-    minAvailable: 2
+  selector:
+      matchLabels:
+          app: zk
+  minAvailable: 2
 ---
 ##
 ## Define the ZooKeeper headless service
@@ -42,118 +42,119 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-    annotations:
-        service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
-    name: zookeeper
-    labels:
-        app: pulsar
-        component: zookeeper
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  name: zookeeper
+  labels:
+    app: pulsar
+    component: zookeeper
 spec:
-    ports:
-      - port: 2888
-        name: server
-      - port: 3888
-        name: leader-election
-    clusterIP: None
-    selector:
-        app: pulsar
-        component: zookeeper
+  ports:
+    - port: 2888
+      name: server
+    - port: 3888
+      name: leader-election
+  clusterIP: None
+  selector:
+      app: pulsar
+      component: zookeeper
 ---
 ## Define a StatefulSet for ZK servers
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-    name: zk
-    labels:
+  name: zk
+spec: 
+  selector:
+    matchLabels:
+      app: pulsar
+      component: zookeeper
+  serviceName: zookeeper
+  replicas: 3
+  template:
+    metadata:
+      labels:
         app: pulsar
         component: zookeeper
-spec:
-    serviceName: zookeeper
-    replicas: 3
-    template:
-        metadata:
-            labels:
-                app: pulsar
-                component: zookeeper
-                cluster: local
-            annotations:
-                pod.alpha.kubernetes.io/initialized: "true"
-                prometheus.io/scrape: "true"
-                prometheus.io/port: "8080"
-        spec:
-            # Make sure multiple pods of ZK don't get scheduled on the
-            # same node, unless there are no other available nodes
-            affinity:
-                podAntiAffinity:
-                    preferredDuringSchedulingIgnoredDuringExecution:
-                      - weight: 1
-                        podAffinityTerm:
-                            labelSelector:
-                                matchExpressions:
-                                  - key: "app"
-                                    operator: In
-                                    values:
-                                      - pulsar
-                                  - key: "component"
-                                    operator: In
-                                    values:
-                                      - zookeeper
-                            topologyKey: "kubernetes.io/hostname"
-            containers:
-              - name: zookeeper
-                image: apachepulsar/pulsar-all:latest
-                command: ["sh", "-c"]
-                args:
-                  - >
-                    bin/apply-config-from-env.py conf/zookeeper.conf &&
-                    bin/apply-config-from-env.py conf/pulsar_env.sh &&
-                    bin/generate-zookeeper-config.sh conf/zookeeper.conf &&
-                    bin/pulsar zookeeper
-                ports:
-                  - containerPort: 2181
-                    name: client
-                  - containerPort: 2888
-                    name: server
-                  - containerPort: 3888
-                    name: leader-election
-                env:
-                  - name: ZOOKEEPER_SERVERS
-                    value: zk-0,zk-1,zk-2
-                envFrom:
-                  - configMapRef:
-                        name: zookeeper-config
+        cluster: local
+      annotations:
+        pod.alpha.kubernetes.io/initialized: "true"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      # Make sure multiple pods of ZK don't get scheduled on the
+      # same node, unless there are no other available nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app"
+                  operator: In
+                  values:
+                    - pulsar
+                - key: "component"
+                  operator: In
+                  values:
+                    - zookeeper
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: zookeeper
+        image: apachepulsar/pulsar-all:latest
+        command: ["sh", "-c"]
+        args:
+          - >
+            bin/apply-config-from-env.py conf/zookeeper.conf &&
+            bin/apply-config-from-env.py conf/pulsar_env.sh &&
+            bin/generate-zookeeper-config.sh conf/zookeeper.conf &&
+            bin/pulsar zookeeper
+        ports:
+          - containerPort: 2181
+            name: client
+          - containerPort: 2888
+            name: server
+          - containerPort: 3888
+            name: leader-election
+        env:
+          - name: ZOOKEEPER_SERVERS
+            value: zk-0,zk-1,zk-2
+        envFrom:
+          - configMapRef:
+              name: zookeeper-config
 
-                readinessProbe:
-                    exec:
-                        command:
-                          - "bin/pulsar-zookeeper-ruok.sh"
-                    initialDelaySeconds: 5
-                    timeoutSeconds: 5
+        readinessProbe:
+          exec:
+              command:
+                - "bin/pulsar-zookeeper-ruok.sh"
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
 
-                livenessProbe:
-                    exec:
-                        command:
-                          - "bin/pulsar-zookeeper-ruok.sh"
-                    initialDelaySeconds: 15
-                    timeoutSeconds: 5
+        livenessProbe:
+          exec:
+              command:
+                - "bin/pulsar-zookeeper-ruok.sh"
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
 
-                volumeMounts:
-                  - name: datadir
-                    mountPath: /pulsar/data
+        volumeMounts:
+          - name: datadir
+            mountPath: /pulsar/data
 
   # Allow Stateful Set to create a dynamic persistent volume claim for each pod
   volumeClaimTemplates:
-    - metadata:
-        name: datadir
-        labels:
-          app: pulsar
-          storage: zookeeper
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            # Request a 2GB Block Storage Volume
-            storage: 2G
-        # Use the dedicated Digital Ocean storage class to request Block Storage Volumes
-        storageClassName: do-block-storage
+  - metadata:
+      name: datadir
+      labels:
+        app: pulsar
+        storage: zookeeper
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          # Request a 2GB Block Storage Volume
+          storage: 2G
+      # Use the dedicated Digital Ocean storage class to request Block Storage Volumes
+      storageClassName: do-block-storage
