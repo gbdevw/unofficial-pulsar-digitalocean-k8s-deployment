@@ -114,6 +114,9 @@ spec:
     # Local persistent volume claim for the journal
     - metadata:
         name: data-volume
+        labels:
+          app: pulsar
+          storage: prometheus
       spec:
         accessModes:
           - ReadWriteOnce
