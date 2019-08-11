@@ -55,8 +55,6 @@ spec:
 # a node. The Stateful Set defines a sticky identity for each bookie. When a bookie
 # need to be rescheduled, it will be scheduled with the same volumes.
 #
-# Only one replica is requested. Scale the Stateful Set accordingly after the deployment.
-#
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -68,7 +66,7 @@ spec:
       component: bookkeeper
       cluster: local
   serviceName: "bookkeeper"
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
