@@ -57,6 +57,7 @@ spec:
     matchLabels:
       app: pulsar
       component: zookeeper
+      cluster: local
   serviceName: zookeeper
   replicas: 3
   template:
