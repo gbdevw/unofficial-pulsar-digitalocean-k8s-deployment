@@ -70,14 +70,12 @@ spec:
     matchLabels:
       app: pulsar
       component: broker
-      cluster: local
   replicas: 3
   template:
     metadata:
       labels:
           app: pulsar
           component: broker
-          cluster: local
       annotations:
           prometheus.io/scrape: "true"
           prometheus.io/port: "8080"
