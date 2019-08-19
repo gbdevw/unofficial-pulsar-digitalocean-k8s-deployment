@@ -80,6 +80,23 @@ spec:
           prometheus.io/scrape: "true"
           prometheus.io/port: "8080"
     spec:
+      affinity:
+        # If possible, schedule broker pods on different nodes
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              podAffinityTerm:
+                  labelSelector:
+                    matchExpressions:
+                      - key: "app"
+                        operator: In
+                        values:
+                          - pulsar
+                      - key: "component"
+                        operator: In
+                        values:
+                          - broker
+                  topologyKey: "kubernetes.io/hostname"
       containers:
         - name: broker
           image: apachepulsar/pulsar-all:latest
