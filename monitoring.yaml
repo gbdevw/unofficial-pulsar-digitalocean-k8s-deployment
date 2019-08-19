@@ -78,12 +78,13 @@ spec:
         app: pulsar
         component: prometheus
 ---
-## PROMOTHEUS - Deployment
+## PROMOTHEUS - StatefulSet
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
     name: prometheus
 spec:
+    serviceName: prometheus
     # Must match template:metadata:labels
     selector:
         matchLabels:
@@ -111,7 +112,24 @@ spec:
                 configMap:
                     name: prometheus-config
               - name: data-volume
-                emptyDir: {}
+
+    # Allow Stateful Set to create a dynamic persistent volume claim for local storage
+    volumeClaimTemplates:
+        # Local persistent volume claim for the journal
+        - metadata:
+            name: data-volume
+            labels:
+              app: pulsar
+              storage: prometheus
+          spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  # Request a 10Gi Block Storage Volume
+                  storage: 10G
+              # Use the dedicated Dgitial Ocean storage class to request Block Storage Volumes
+              storageClassName: do-block-storage
 ---
 ## GRAFANA - Headless Service
 apiVersion: v1
