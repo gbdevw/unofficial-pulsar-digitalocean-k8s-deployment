@@ -153,7 +153,7 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            # Request a 12GB Block Storage Volume
+            # Request a 12Gi Block Storage Volume
             # Default config. uses 5 files of 2GB + misc. for bookie journal
             storage: 12G
         # Use the dedicated Dgitial Ocean storage class to request Block Storage Volumes
@@ -169,7 +169,7 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            # Request a 50GB Block Storage Volume
+            # Request a 50Gi Block Storage Volume
             # Dimension ledger storage space according your expected load
             storage: 50G
         # Use the dedicated Dgitial Ocean storage class to request Block Storage Volumes
