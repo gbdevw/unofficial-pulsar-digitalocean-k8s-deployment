@@ -39,9 +39,10 @@ spec:
           - configMapRef:
                 name: broker-config
         env:
+          # Use the broker headless service to discover broker pods
           - name: webServiceUrl
-            value: "http://proxy:8080/"
+            value: "http://broker:8080/"
           - name: brokerServiceUrl
-            value: "pulsar://proxy:6650/"
+            value: "pulsar://broker:6650/"
           - name: PULSAR_MEM
             value: "\"-Xms64m -Xmx128m\""
