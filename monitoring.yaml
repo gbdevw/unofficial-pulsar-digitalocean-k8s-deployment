@@ -60,7 +60,7 @@ data:
                 action: replace
                 target_label: kubernetes_pod_name
 ---
-## PROMOTHEUS - Service
+## PROMOTHEUS - Headless Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -69,12 +69,11 @@ metadata:
         app: pulsar
         component: prometheus
 spec:
-    type: NodePort
     ports:
       - name: prometheus
-        nodePort: 30003
         port: 9090
         protocol: TCP
+    clusterIP: None
     selector:
         app: pulsar
         component: prometheus
@@ -114,7 +113,7 @@ spec:
               - name: data-volume
                 emptyDir: {}
 ---
-## GRAFANA - Service
+## GRAFANA - Headless Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -123,12 +122,11 @@ metadata:
         app: pulsar
         component: grafana
 spec:
-    type: NodePort
     ports:
       - name: grafana
-        nodePort: 30004
         port: 3000
-        protocol: TCP 
+        protocol: TCP
+    clusterIP: None
     selector:
         app: pulsar
         component: grafana
@@ -160,7 +158,7 @@ spec:
                   - name: PROMETHEUS_URL
                     value: http://prometheus:9090/
 ---
-## PULSAR DASHBOARD - Deployment
+## PULSAR DASHBOARD - Headless Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -169,12 +167,11 @@ metadata:
         app: pulsar
         component: dashboard
 spec:
-    type: NodePort
     ports:
       - name: dashboard
-        nodePort: 30005
         port: 80
         protocol: TCP
+    clusterIP: None
     selector:
         app: pulsar
         component: dashboard
