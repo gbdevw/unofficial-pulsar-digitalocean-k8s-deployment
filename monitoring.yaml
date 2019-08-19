@@ -112,6 +112,7 @@ spec:
                 configMap:
                     name: prometheus-config
               - name: data-volume
+            serviceAccountName: prometheus
 
     # Allow Stateful Set to create a dynamic persistent volume claim for local storage
     volumeClaimTemplates:
