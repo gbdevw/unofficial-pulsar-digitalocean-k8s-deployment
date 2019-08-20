@@ -1,20 +1,30 @@
 ## Deploy Apache Pulsar on your Digital Ocean Kubernetes Cluster (Unofficial)
 
+### Layout
+
+1. About
+2. Prerequisites
+3. Pricing model
+4. Deployment - Quick steps
+5. Deployment - Comprehensive review
+
 ### About
 
-The scripts aim to deploy a basic Apache Pulsar Cluster on a Digital Ocean managed Kubernetes cluster. The biggest differences with the official scripts is the way storage is managed : With Digital Ocean K8S clusters, you use Persistent Volume Claims with a special Storage Class in order to get and attach permanent storage to your pods.
+The scripts aim to deploy a basic Apache Pulsar cluster on a Digital Ocean managed Kubernetes cluster. The two biggest differences with the official scripts are :
+
+1. The use of StatefulSets rather than DaemonSets to provide sticky identities, permanent storage and tune pod scheduling
+2. The use of Persistent Volume Claims with a special Storage Class to attach Digital Ocean Block Storage to the pods
 
 The deployment method shown has been tested on a fresh 3 nodes (2vCPU, 4GB RAM) pool. 
 
 Like the official documentation (https://pulsar.apache.org/docs/en/deploy-kubernetes/), this method will deploy :
 
-MANDATORY :
 - A three-node ZooKeeper cluster
 - A two-bookie BookKeeper cluster
 - A three-broker Pulsar cluster
-
-OPTIONNAL :
 - A pod from which you can run administrative commands using the pulsar-admin CLI tool
+
+**OPTIONNAL**
 - A monitoring stack consisting of Prometheus, Grafana, and the Pulsar dashboard
 - NodePort services to expose components to the outside of your Kubernetes cluster (= the whole internet)
 
@@ -23,7 +33,7 @@ OPTIONNAL :
 1. A Digital Ocean Kubernetes cluster
 2. kubectl configured to interact with your cluster 
 
-Official documentation for each step :
+Official documentation for each prerequisite :
 
 1. https://www.digitalocean.com/docs/kubernetes/how-to/create-clusters/
 2. https://www.digitalocean.com/docs/kubernetes/how-to/connect-to-cluster/
@@ -49,23 +59,13 @@ THIS MODEL DOES NOT TAKE INTO ACCOUNT BANDWIDTH USAGE AND BILLING !
 - 3 Nodes billed 20 USD/month
 - 3 ZooKeeper replicas with 2GiB storage each
 - 2 BookKeeper replicas with 50GiB storage for ledger + 12 GiB storage for journal
-- 1 Prometheus replicas with 10 GiB storage
+- 1 Prometheus replica with 10 GiB storage
 
 Price in USD/month = (3 * 20) + (3 * 2 * 0.10) + (2 * (50 + 12) * 0.10) + (10 * 0.10) = 74 USD/month
 
-### Deployment (summary)
-
-TODO
-
-### Deployment (explained)
-
-All component are deployed in the default namespace. All components are labelled with app=pulsar and various specific labels and values (component, storage, ...).
+### Deployment - Quick steps
 
 #### 1. Deploy the ZooKeeper cluster
-
-The first thing to do is to deploy the ZooKeeper cluster that will help coordinating the different components of your Apache Pulsar cluster. The zookeeper.yaml file deploys a headless service and a 3 ZooKeeper replicas StatefulSet. 
-
-Using a StatefulSet provides sticky identities to your ZooKeeper pods, allow them to claim a block storage and ensure that each ZooKeeper pod can retrieve its storage when the pod is rescheduled, restarted, etc... The StatefulSet use a pod anti-affinity rule in order to schedule the ZooKeeper pods on different nodes if possible.
 
 You can use the following command to deploy your ZooKeeper cluster :
 
@@ -79,16 +79,99 @@ This command allow you to check the state of your ZooKeeper pods :
 kubectl get pods -l component=zookeeper -o wide
 ```
 
-Once ALL your ZooKeeper pods are in Running State, you can deploy a job that will initialize your ZooKeeper cluster with some metadata.
-
 NOTE : The first container deployment can take up to several minutes because the container image to pull is big (https://hub.docker.com/r/apachepulsar/pulsar-all/tags)
 
 #### 2. Initialize your ZooKeeper cluster metadata
 
-This command deploys the job (cluster-metadata.yaml) :
+
+Once ALL your ZooKeeper pods are in Running State, you can deploy a job that will initialize your ZooKeeper cluster with some metadata.
+
+This command deploys the job that initializes metadata on your ZooKeeper cluster (cluster-metadata.yaml) :
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/cluster-metadata.yaml
 ```
 
+#### 3. Deploy the BookKeeper cluster
 
+This command deploys the BookKeeper cluster :
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/bookie.yaml
+```
+
+This command allow you to check the state of your BookKeeper pods :
+
+```bash
+kubectl get pods -l component=bookkeeper -o wide
+```
+
+#### 4. Deploy the brokers
+
+Once your bookies are up, you can deploy the brokers :
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/broker.yaml
+```
+
+#### 5. Deploy the pulsar-admin pod
+
+This command deploys a pod from which you can run administrative commands using the pulsar-admin CLI tool :
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/admin.yaml
+```
+
+#### 6. Test your Apache Pulsar cluster
+
+From here, you can run a simple test that uses the pulsar-admin pod to create a producer and consumer :
+
+This command creates the producer :
+
+```bash
+kubectl exec pulsar-admin -it -- bin/pulsar-perf produce persistent://public/default/test-topic --rate 1000
+```
+
+This command creates the consumer :
+
+```bash
+kubectl exec pulsar-admin -it -- bin/pulsar-perf consume persistent://public/default/test-topic --subscriber-name test-subscription
+```
+
+TODO : Add cleanup commands
+
+#### 7. Deploy the monitoring stack (Optionnal)
+
+The first thing to do is to create a ServiceAccount that allow Prometheus to query your Kubernetes cluster in order to find the different components from which metrics should be scrapped :
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/prometheus-rbac.yaml
+```
+
+The next step consists in deploying the various components of the monitoring stack :
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/monitoring.yaml
+```
+
+#### 8. Allow remote access to components inside your Digital Ocean Kubernetes cluster (Optionnal)
+
+TODO : Add commands - Finish section
+
+**ATTENTION : Allowing access from outside your Digital Ocean Kubernetes cluster exposes the components to the whole Internet. Security considerations and component security configuration are beyond the perimeter of this guide.**
+
+Currently, the component of your Apache Pulsar cluster can be accessed only from within your Digital Ocean Kubernetes cluster.
+
+This command deploys a NodePort service that exposes your brokers (30001 & 30002) :
+
+This command deploys a NodePort service that exposes Prometheus (30003) :
+
+This command deploys a NodePort service that exposes Grafana (30004) :
+
+This command deploys a NodePort service that exposes the Pulsar Dashboard (30005) :
+
+You can access your component by using the Nodeport service port and the public IP of one of the droplets that compose your Digital Ocean cluster (<Droplet public IP>:<port>). The ways to provide a less fragile way (not relying on one public IP) to target the components of your Apache Pulsar cluster from outside your Digital Ocean Kubernetes cluster are also beyong the perimeter of this guide. 
+
+### Deployment - Comprehensive review
+
+TODO
