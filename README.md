@@ -6,7 +6,6 @@
 2. Prerequisites
 3. Pricing model
 4. Deployment - Quick steps
-5. Deployment - Comprehensive review
 
 ### About
 
@@ -138,8 +137,6 @@ This command creates the consumer :
 kubectl exec pulsar-admin -it -- bin/pulsar-perf consume persistent://public/default/test-topic --subscriber-name test-subscription
 ```
 
-TODO : Add cleanup commands
-
 #### 7. Deploy the monitoring stack (Optionnal)
 
 The first thing to do is to create a ServiceAccount that allow Prometheus to query your Kubernetes cluster in order to find the different components from which metrics should be scrapped :
@@ -156,22 +153,32 @@ kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial
 
 #### 8. Allow remote access to components inside your Digital Ocean Kubernetes cluster (Optionnal)
 
-TODO : Add commands - Finish section
-
-**ATTENTION : Allowing access from outside your Digital Ocean Kubernetes cluster exposes the components to the whole Internet. Security considerations and component security configuration are beyond the perimeter of this guide.**
+**CAUTION : Allowing access from outside your Digital Ocean Kubernetes cluster exposes the components to the whole Internet. Security considerations and component security configuration are beyond the perimeter of this guide.**
 
 Currently, the component of your Apache Pulsar cluster can be accessed only from within your Digital Ocean Kubernetes cluster.
 
 This command deploys a NodePort service that exposes your brokers (30001 & 30002) :
 
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/broker-proxy.yml
+```
+
 This command deploys a NodePort service that exposes Prometheus (30003) :
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/prometheus-proxy.yml
+```
 
 This command deploys a NodePort service that exposes Grafana (30004) :
 
+```bash
+kubectl apply -f https://github.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/blob/master/grafana-proxy.yml
+```
+
 This command deploys a NodePort service that exposes the Pulsar Dashboard (30005) :
 
-You can access your component by using the Nodeport service port and the public IP of one of the droplets that compose your Digital Ocean cluster (<Droplet public IP>:<port>). The ways to provide a less fragile way (not relying on one public IP) to target the components of your Apache Pulsar cluster from outside your Digital Ocean Kubernetes cluster are also beyong the perimeter of this guide. 
+```bash
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/dashboard-proxy.yml
+```
 
-### Deployment - Comprehensive review
-
-TODO
+You can access your component by using the Nodeport service port and the public IP of one of the droplets that compose your Digital Ocean cluster (Droplet public IP : port). The ways to provide a less fragile way (not relying on one public IP) to target the components of your Apache Pulsar cluster from outside your Digital Ocean Kubernetes cluster are also beyong the perimeter of this guide. 
