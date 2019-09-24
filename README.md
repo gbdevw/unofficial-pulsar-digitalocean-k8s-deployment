@@ -172,7 +172,7 @@ kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial
 This command deploys a NodePort service that exposes Grafana (30004) :
 
 ```bash
-kubectl apply -f https://github.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/blob/master/grafana-proxy.yml
+kubectl apply -f https://raw.githubusercontent.com/guillaume-braibant/unofficial-pulsar-digitalocean-k8s-deployment/master/grafana-proxy.yml
 ```
 
 This command deploys a NodePort service that exposes the Pulsar Dashboard (30005) :
